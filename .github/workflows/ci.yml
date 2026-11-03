@@ -1,0 +1,49 @@
+name: ci
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install pytest
+      - run: python -m pytest tests -q
+
+  privacy-scan:
+    # No personal data or credentials may enter this repo. The only allowed
+    # secret-shaped string is the documented public-APK shared key (see
+    # docs/design.md); everything else fails the job.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: No committed bytecode
+        run: |
+          if git ls-files | grep -E '__pycache__|\.pyc$'; then
+            echo 'bytecode committed'; exit 1
+          else
+            echo 'no bytecode tracked'
+          fi
+      - name: No personal data or undocumented secrets
+        # High-signal patterns only: 9-digit IDs, IL mobile numbers, emails,
+        # PEM blocks. The workflow file itself is excluded (it carries the
+        # patterns); tests/test_client.py fixtures (0500000000, m@example.com)
+        # are synthetic and allowlisted. Generic words like "token" are not
+        # scanned - they false-positive on prose.
+        run: |
+          hits=$(grep -rInE '\b[0-9]{9}\b|05[0-9]-?[0-9]{7}|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|-----BEGIN' \
+            --exclude-dir=.git --exclude=ci.yml . \
+            | grep -vE '0500000000|example\.com' || true)
+          if [ -n "$hits" ]; then echo "$hits"; exit 1; fi
+          echo 'clean'
