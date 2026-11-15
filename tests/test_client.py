@@ -2,13 +2,25 @@ import json
 import os
 import sys
 import unittest
+from unittest import mock
 import urllib.parse
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tools"))
 import bsmoked_client as c  # noqa: E402
 
 
-class TestStreets(unittest.TestCase):
+class OfflineTestCase(unittest.TestCase):
+    def setUp(self):
+        super().setUp()
+        env = mock.patch.dict(os.environ, {"BSMOKED_SECRET": "synthetic-test-key"})
+        env.start()
+        self.addCleanup(env.stop)
+        network = mock.patch("urllib.request.urlopen", side_effect=AssertionError("network forbidden in tests"))
+        network.start()
+        self.addCleanup(network.stop)
+
+
+class TestStreets(OfflineTestCase):
     def test_url_contains_secret_and_path(self):
         url = c.get_streets_url(secret="S")
         self.assertTrue(url.startswith("https://bshemesh.moked-binaa.co.il/api/"))
@@ -32,7 +44,7 @@ REPORTER = {"fn": "משה", "ln": "כהן", "cellphone": "0500000000",
             "email": "m@example.com", "my_home": "3", "address": "הרצל", "hash": "H1"}
 
 
-class TestInsertCallParams(unittest.TestCase):
+class TestInsertCallParams(OfflineTestCase):
     def test_street_branch(self):
         p = c.build_insert_call_params(REPORTER, {
             "description": "רכב חוסם מדרכה, מ.ר. 1234567",
@@ -47,7 +59,7 @@ class TestInsertCallParams(unittest.TestCase):
         self.assertEqual(p["tz"], "")          # app never sets an ID number
         self.assertEqual(p["hash"], "H1")      # returning contact
         self.assertEqual(p["cellphone"], "0500000000")
-        self.assertEqual(p["secret"], c.APP_SECRET)
+        self.assertEqual(p["secret"], "synthetic-test-key")
 
     def test_gps_branch(self):
         p = c.build_insert_call_params(REPORTER, {
@@ -79,7 +91,7 @@ class TestInsertCallParams(unittest.TestCase):
         self.assertEqual(qs["description"], ["רכב חוסם מדרכה"])
 
 
-class TestResponseParsing(unittest.TestCase):
+class TestResponseParsing(OfflineTestCase):
     def test_success(self):
         ok, number, h = c.parse_insert_call_response(
             '{"status": 1, "number": "12345", "user_hash": "abc"}')
@@ -97,7 +109,7 @@ class TestResponseParsing(unittest.TestCase):
         self.assertFalse(ok)
 
 
-class TestFilingGuard(unittest.TestCase):
+class TestFilingGuard(OfflineTestCase):
     def test_default_does_not_send(self):
         out = c.insert_call(REPORTER, {
             "description": "x", "street": "s", "home": "1", "street_id": "1"})
@@ -111,7 +123,7 @@ class TestFilingGuard(unittest.TestCase):
         self.assertFalse(out["sent"])
 
 
-class TestUploadHelpers(unittest.TestCase):
+class TestUploadHelpers(OfflineTestCase):
     def test_filename(self):
         self.assertEqual(c.upload_filename(1730000000000, 2), "1730000000000_2.png")
 
@@ -130,6 +142,29 @@ class TestUploadHelpers(unittest.TestCase):
         self.assertIn(b'name="imageToAttach";filename=f.png', body)
         self.assertTrue(body.endswith(boundary.encode() + b"--\r\n"))
         self.assertIn(b"PNGDATA", body)
+
+
+class TestSecretConfiguration(OfflineTestCase):
+    def test_missing_secret_fails_before_network(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(ValueError, "BSMOKED_SECRET is required"):
+                c.get_streets()
+            with self.assertRaisesRegex(ValueError, "BSMOKED_SECRET is required"):
+                c.insert_call(REPORTER, {"description": "x"}, live=True)
+
+    def test_blank_secret_is_rejected(self):
+        for value in ("", "   "):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                c.get_streets_url(secret=value)
+
+    def test_environment_is_resolved_at_call_time(self):
+        with mock.patch.dict(os.environ, {"BSMOKED_SECRET": "synthetic-updated-key"}):
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(c.get_streets_url()).query)
+        self.assertEqual(query["secret"], ["synthetic-updated-key"])
+
+    def test_explicit_secret_overrides_environment(self):
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(c.get_streets_url(secret="synthetic-explicit-key")).query)
+        self.assertEqual(query["secret"], ["synthetic-explicit-key"])
 
 
 if __name__ == "__main__":

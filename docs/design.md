@@ -16,7 +16,7 @@ Base URL: `https://bshemesh.moked-binaa.co.il/api/`
 site `betshemesh.muni.il` is behind Cloudflare and blocks datacenter IPs — the
 Bina host does not).
 
-App-wide shared secret: `secret=3Q03YE3OG5` (embedded in the public APK; same
+App-wide shared secret: `secret=[configure BSMOKED_SECRET; value intentionally omitted]` (embedded in the public APK; same
 standing as Jerusalem's embedded subscription key).
 
 ### 1. Street list — `GET get_streets.php?secret=<secret>`

@@ -13,7 +13,6 @@ import urllib.request
 API_BASE = "https://bshemesh.moked-binaa.co.il/api/"
 UPLOAD_BASE = "https://uploads.binaa.co.il/"
 UPLOAD_FOLDER = "app.betshemesh.muni.il"
-APP_SECRET = os.environ.get("BSMOKED_SECRET", "3Q03YE3OG5")  # embedded in the public APK
 MAX_IMAGES = 4
 USER_AGENT = "beit-shemesh-moked/0.1"
 
@@ -28,23 +27,34 @@ def _get_json(url, timeout=30):
         return json.loads(resp.read().decode("utf-8"))
 
 
-def get_streets_url(base=API_BASE, secret=APP_SECRET):
+def _resolve_secret(secret):
+    """Resolve configuration at call time without an embedded fallback."""
+    if secret is None:
+        secret = os.environ.get("BSMOKED_SECRET")
+    if not isinstance(secret, str) or not secret.strip():
+        raise ValueError("BSMOKED_SECRET is required (or pass secret explicitly)")
+    return secret
+
+
+def get_streets_url(base=API_BASE, secret=None):
+    secret = _resolve_secret(secret)
     return urllib.parse.urljoin(base, "get_streets.php") + "?" + urllib.parse.urlencode({"secret": secret})
 
 
-def get_streets(base=API_BASE, secret=APP_SECRET, live=True):
+def get_streets(base=API_BASE, secret=None, live=True):
     """Street list is read-only; the app itself fetches it on every open."""
     data = _get_json(get_streets_url(base, secret))
     return data["streets"]
 
 
-def build_insert_call_params(reporter, event, secret=APP_SECRET):
+def build_insert_call_params(reporter, event, secret=None):
     """Assemble the exact param set the app sends to insert_call.php.
 
     reporter: {fn, ln, cellphone, email?, my_home?, address?, tz?, hash?}
     event:    {description, street, home, street_id?  OR  event_lat/event_lng,
                images: [public urls up to 4]}
     """
+    secret = _resolve_secret(secret)
     p = {
         "secret": secret,
         "fn": reporter.get("fn", ""),
@@ -87,7 +97,7 @@ def parse_insert_call_response(payload):
     return ok, (number if ok else ""), user_hash
 
 
-def insert_call(reporter, event, secret=APP_SECRET, base=API_BASE, live=False):
+def insert_call(reporter, event, secret=None, base=API_BASE, live=False):
     """File a report. Default: returns the prepared URL without sending."""
     params = build_insert_call_params(reporter, event, secret)
     url = insert_call_url(params, base)
