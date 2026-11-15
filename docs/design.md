@@ -76,10 +76,10 @@ The app then opens the webview
 `https://betshemesh.muni.il/moked-profile/?app=1&cellphone=<num>&hash=<hash>`
 which shows the resident's calls and their statuses. There is no REST
 status-list endpoint in the modern stack. Status checking therefore needs
-either the reporter's phone for the OTP (Meir forwards the code, or his own
-Instinct does it) or scraping the webview page (Cloudflare may block us there;
-untested — do not probe without approval). Do NOT probe profile.php with real
-phone numbers: step 1 sends a real SMS.
+either the reporter's phone for the OTP (the resident forwards the code, or
+their own Instinct does it) or scraping the webview page (Cloudflare may
+block us there; untested — do not probe without approval). Do NOT probe
+profile.php with real phone numbers: step 1 sends a real SMS.
 
 ### Legacy stack (do not use)
 
@@ -92,7 +92,7 @@ modern insert_call flow supersedes it and returns a real case number.
 
 ## Proposed pipeline (mirrors parking-reports)
 
-1. Meir (or his Instinct) sends a photo + note.
+1. The resident (or their Instinct) sends a photo + note.
 2. GPS from EXIF → nearest street in the get_streets table (streetId branch),
    house number free text.
 3. Description: what is seen + plate when it's a vehicle (registry facts can
@@ -100,17 +100,17 @@ modern insert_call flow supersedes it and returns a real case number.
 4. Upload images (≤4, downscaled), verify each URL is fetchable.
 5. `insert_call` → store `number` + `user_hash` (first call), reuse the hash
    afterwards. Summary line with the case number, same as Jerusalem's email.
-6. Status: via profile.php OTP owned by the reporter — Meir's Instinct is the
-   natural owner of that step.
+6. Status: via profile.php OTP owned by the reporter — the reporter's own
+   Instinct is the natural owner of that step.
 
 ## What we need before any live filing
 
 - Approval to file real reports (this research got approval for read-only
   probing only). The first insert_call is a real municipal ticket; suggest a
   genuine small report as the test.
-- Whose identity files: Meir's details (name, cellphone; his Instinct should
-  hold them) — needs Meir's consent. No ID number is required.
-- Confirmations/SMS go to the contact phone — Meir's.
+- Whose identity files: the resident's details (name, cellphone) — needs the
+  resident's consent. No ID number is required.
+- Confirmations/SMS go to the contact phone — the resident's.
 - The municipality published no API terms of use; the secret is embedded in
   the public app (like Jerusalem). Rate limits unknown — be conservative.
 - GitHub Actions reachability to bshemesh.moked-binaa.co.il is unverified
