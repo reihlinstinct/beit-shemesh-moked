@@ -1,4 +1,4 @@
-# Beit Shemesh resident app reference (private)
+# Beit Shemesh resident app reference
 
 Package `binaaltd.beitshemesh`, "עיריית בית שמש", version 1.6 (code 23), min SDK 21,
 native Android (Java/Kotlin, obfuscated with r8 — helper classes under `o/`).
@@ -29,5 +29,6 @@ Key classes (decompiled names):
 - Embedded Google geocode key `AIzaSy...aGI` used for reverse-geocoding the
   event location (app-side only).
 
-The app contains the shared API secret (see docs/design.md). Keep this repo private.
-Our filing credentials (when approved) stay in Actions secrets / the vault, never in files.
+The app contains the shared API secret (see docs/design.md); it is embedded in
+the public Play-Store APK. Our filing credentials (when approved) stay in
+Actions secrets / the vault, never in files.
